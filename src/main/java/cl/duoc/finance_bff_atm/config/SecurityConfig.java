@@ -24,9 +24,10 @@ import cl.duoc.finance_bff_atm.security.JwtFilter;
  * filtro JWT en la cadena de seguridad.
  *
  * Politica de acceso:
- * - /auth/login    -> Publico (permite obtener el token JWT)
- * - /bff/atm/v1/** -> Requiere rol CAJERO_AUT (operadores de cajero autorizados)
- * - Cualquier otro  -> Requiere autenticacion
+ * - /auth/login -> Publico (permite obtener el token JWT)
+ * - /bff/atm/v1/** -> Requiere rol CAJERO_AUT (operadores de cajero
+ * autorizados)
+ * - Cualquier otro -> Requiere autenticacion
  *
  * @author Duoc UC - Backend 3
  */
@@ -34,17 +35,22 @@ import cl.duoc.finance_bff_atm.security.JwtFilter;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /** Filtro JWT personalizado que intercepta cada request para validar el token */
+    /**
+     * Filtro JWT personalizado que intercepta cada request para validar el token
+     */
     @Autowired
     private JwtFilter jwtFilter;
 
     /**
      * Configura la cadena de filtros de seguridad HTTP.
      *
-     * - CSRF deshabilitado: no se requiere porque la autenticacion es via tokens JWT,
-     *   no mediante cookies de sesion.
-     * - Sesiones STATELESS: cada request se autentica de forma independiente con su token.
-     * - Se agrega el JwtFilter antes del filtro estandar de usuario/password de Spring.
+     * - CSRF deshabilitado: no se requiere porque la autenticacion es via tokens
+     * JWT,
+     * no mediante cookies de sesion.
+     * - Sesiones STATELESS: cada request se autentica de forma independiente con su
+     * token.
+     * - Se agrega el JwtFilter antes del filtro estandar de usuario/password de
+     * Spring.
      *
      * @param http configurador de seguridad HTTP de Spring
      * @return cadena de filtros de seguridad construida
@@ -53,14 +59,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login").permitAll()
-                .requestMatchers("/bff/atm/v1/**").hasRole("CAJERO_AUT")
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/auth/**", "/public/**").permitAll()
+                        .anyRequest().authenticated())
+                .oauth2Login(org.springframework.security.config.Customizer.withDefaults());
+
+        // .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -68,9 +73,11 @@ public class SecurityConfig {
     /**
      * Almacen de usuarios en memoria para autenticacion.
      *
-     * En este entorno de desarrollo se define un usuario de prueba con rol CAJERO_AUT.
+     * En este entorno de desarrollo se define un usuario de prueba con rol
+     * CAJERO_AUT.
      * En produccion, esto deberia reemplazarse por un proveedor de usuarios
-     * respaldado por base de datos o un servicio de directorio (LDAP, OAuth2, etc.).
+     * respaldado por base de datos o un servicio de directorio (LDAP, OAuth2,
+     * etc.).
      *
      * Usuario de prueba:
      * - username: cajero_atm_01
@@ -82,10 +89,10 @@ public class SecurityConfig {
     @Bean
     public InMemoryUserDetailsManager userDetailsService() {
         UserDetails user = User.withDefaultPasswordEncoder()
-            .username("cajero_atm_01")
-            .password("admin_atm")
-            .roles("CAJERO_AUT")
-            .build();
+                .username("cajero_atm_01")
+                .password("admin_atm")
+                .roles("CAJERO_AUT")
+                .build();
         return new InMemoryUserDetailsManager(user);
     }
 

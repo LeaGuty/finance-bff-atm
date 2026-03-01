@@ -22,13 +22,17 @@ import java.util.stream.Collectors;
 /**
  * Implementacion del servicio BFF ATM.
  *
- * Orquesta las llamadas al microservicio backend de finanzas (http://localhost:8080/api/v1)
- * y transforma las respuestas aplicando logica de seguridad y formato para el cajero ATM.
+ * Orquesta las llamadas al microservicio backend de finanzas
+ * (http://localhost:8080/api/v1)
+ * y transforma las respuestas aplicando logica de seguridad y formato para el
+ * cajero ATM.
  *
  * Responsabilidades:
- * - Propagar el token JWT del request original al backend (pass-through de autorizacion)
+ * - Propagar el token JWT del request original al backend (pass-through de
+ * autorizacion)
  * - Consultar datos de cuenta y transacciones desde el backend
- * - Enmascarar el nombre del cliente por seguridad (ej: "Juan Perez" -> "J*** P****")
+ * - Enmascarar el nombre del cliente por seguridad (ej: "Juan Perez" -> "J***
+ * P****")
  * - Limitar los movimientos a los 3 mas recientes para impresion en voucher
  * - Manejar errores de comunicacion con el backend de forma graceful
  *
@@ -40,6 +44,9 @@ public class FinanceAtmServiceImpl implements FinanceAtmService {
     /** RestTemplate para realizar llamadas HTTP al backend principal */
     @Autowired
     private RestTemplate restTemplate;
+
+    @Autowired
+    private cl.duoc.finance_bff_atm.security.JwtUtil jwtUtil;
 
     /** URL base del microservicio backend de finanzas */
     private final String BACKEND_URL = "http://localhost:8080/api/v1";
@@ -53,13 +60,28 @@ public class FinanceAtmServiceImpl implements FinanceAtmService {
      */
     private HttpHeaders getHeadersConToken() {
         HttpHeaders headers = new HttpHeaders();
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            String authHeader = attributes.getRequest().getHeader("Authorization");
-            if (authHeader != null) {
-                headers.set("Authorization", authHeader);
-            }
+
+        try {
+            // 1. Obtener el usuario autenticado con GitHub desde el contexto de seguridad
+            org.springframework.security.oauth2.core.user.OAuth2User oauthUser = (org.springframework.security.oauth2.core.user.OAuth2User) org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication().getPrincipal();
+
+            // 2. Extraer el nombre de usuario de GitHub para log o trazabilidad (opcional)
+            String githubUser = oauthUser.getAttribute("login");
+
+            // 3. Generar el JWT para el backend.
+            // Mapeamos a "cajero_atm_01" porque el microservicio finance-batch utiliza
+            // un InMemoryUserDetailsManager que solo conoce este usuario para el rol ATM.
+            String usernameInternoBff = "cajero_atm_01";
+            String tokenInterno = jwtUtil.generateToken(usernameInternoBff, "ROLE_CAJERO_AUT");
+
+            // 4. Inyectarlo en el Header con el prefijo Bearer
+            headers.set("Authorization", "Bearer " + tokenInterno);
+
+        } catch (Exception e) {
+            System.err.println("Error generando el token relay para el Core: " + e.getMessage());
         }
+
         return headers;
     }
 
@@ -86,11 +108,10 @@ public class FinanceAtmServiceImpl implements FinanceAtmService {
             // Llamada 1: Obtener datos de la cuenta (nombre del titular y saldo)
             String urlCuenta = BACKEND_URL + "/cuentas/" + id;
             ResponseEntity<Map> responseCuenta = restTemplate.exchange(
-                urlCuenta,
-                HttpMethod.GET,
-                entity,
-                Map.class
-            );
+                    urlCuenta,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class);
 
             Map<String, Object> cuentaData = responseCuenta.getBody();
 
@@ -111,20 +132,20 @@ public class FinanceAtmServiceImpl implements FinanceAtmService {
             // Llamada 2: Obtener las transacciones de la cuenta
             String urlMovs = BACKEND_URL + "/cuentas/" + id + "/transacciones";
             ResponseEntity<List<MovimientoAtmDTO>> responseMovs = restTemplate.exchange(
-                urlMovs,
-                HttpMethod.GET,
-                entity,
-                new ParameterizedTypeReference<List<MovimientoAtmDTO>>() {}
-            );
+                    urlMovs,
+                    HttpMethod.GET,
+                    entity,
+                    new ParameterizedTypeReference<List<MovimientoAtmDTO>>() {
+                    });
 
             List<MovimientoAtmDTO> movimientos = responseMovs.getBody();
             if (movimientos != null) {
                 // Ordenar por fecha descendente y tomar solo los 3 mas recientes
                 // para impresion de mini-estado de cuenta en voucher
                 List<MovimientoAtmDTO> miniEstado = movimientos.stream()
-                    .sorted(Comparator.comparing(MovimientoAtmDTO::getFecha).reversed())
-                    .limit(3)
-                    .collect(Collectors.toList());
+                        .sorted(Comparator.comparing(MovimientoAtmDTO::getFecha).reversed())
+                        .limit(3)
+                        .collect(Collectors.toList());
                 resumen.setUltimos3Movimientos(miniEstado);
             }
 
@@ -144,7 +165,8 @@ public class FinanceAtmServiceImpl implements FinanceAtmService {
 
     /**
      * Enmascara el nombre del cliente por seguridad.
-     * Reemplaza todos los caracteres de cada palabra excepto el primero con asteriscos.
+     * Reemplaza todos los caracteres de cada palabra excepto el primero con
+     * asteriscos.
      *
      * Ejemplo: "Juan Perez" -> "J*** P****"
      *
@@ -152,7 +174,8 @@ public class FinanceAtmServiceImpl implements FinanceAtmService {
      * @return nombre enmascarado o "****" si el nombre es nulo o vacio
      */
     private String enmascararNombre(String nombreReal) {
-        if (nombreReal == null || nombreReal.isEmpty()) return "****";
+        if (nombreReal == null || nombreReal.isEmpty())
+            return "****";
         String[] partes = nombreReal.split(" ");
         StringBuilder enmascarado = new StringBuilder();
         for (String parte : partes) {

@@ -2,8 +2,6 @@ package cl.duoc.finance_bff_atm.model;
 
 import java.util.List;
 
-import lombok.Data;
-
 /**
  * DTO que representa el resumen de cuenta mostrado en la pantalla del cajero ATM.
  *
@@ -11,12 +9,8 @@ import lombok.Data;
  * mensaje del sistema, nombre enmascarado del cliente (por seguridad),
  * saldo actual y los ultimos movimientos para impresion en voucher.
  *
- * Se utiliza Lombok @Data para generar automaticamente getters, setters,
- * toString, equals y hashCode.
- *
  * @author Duoc UC - Backend 3
  */
-@Data
 public class ResumenCajeroDTO {
 
     /** Mensaje del sistema para mostrar en pantalla (ej: "Operacion Exitosa", mensajes de error) */
@@ -30,4 +24,36 @@ public class ResumenCajeroDTO {
 
     /** Ultimos 3 movimientos de la cuenta, ordenados por fecha descendente (para voucher) */
     private List<MovimientoAtmDTO> ultimos3Movimientos;
+
+    public String getMensajeSistema() {
+        return mensajeSistema;
+    }
+
+    public void setMensajeSistema(String mensajeSistema) {
+        this.mensajeSistema = mensajeSistema;
+    }
+
+    public String getNombreClienteEnmascarado() {
+        return nombreClienteEnmascarado;
+    }
+
+    public void setNombreClienteEnmascarado(String nombreClienteEnmascarado) {
+        this.nombreClienteEnmascarado = nombreClienteEnmascarado;
+    }
+
+    public Double getSaldoActual() {
+        return saldoActual;
+    }
+
+    public void setSaldoActual(Double saldoActual) {
+        this.saldoActual = saldoActual;
+    }
+
+    public List<MovimientoAtmDTO> getUltimos3Movimientos() {
+        return ultimos3Movimientos;
+    }
+
+    public void setUltimos3Movimientos(List<MovimientoAtmDTO> ultimos3Movimientos) {
+        this.ultimos3Movimientos = ultimos3Movimientos;
+    }
 }
